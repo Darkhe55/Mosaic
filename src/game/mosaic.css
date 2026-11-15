@@ -1,0 +1,47 @@
+/**
+ * 扫雷 —— 样式
+ */
+
+.board-svg .ms-board-bg {
+  fill: #fffdf8;
+  stroke: #2b3a3f;
+  stroke-width: 1.6;
+}
+
+.board-svg .ms-cell {
+  fill: #f4ead2;
+  stroke: #c8bfa9;
+  stroke-width: 0.8;
+}
+
+.board-svg .ms-cell.clue {
+  fill: #e7ddc6;
+}
+
+.board-svg .ms-clue {
+  font-family: var(--mono);
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+}
+
+.board-svg .ms-clue.c0 { fill: #9a8f77; }
+.board-svg .ms-clue.c1 { fill: #2f6f8f; }
+.board-svg .ms-clue.c2 { fill: #2e7d4f; }
+.board-svg .ms-clue.c3 { fill: #b3541e; }
+.board-svg .ms-clue.c4 { fill: #6a3f8f; }
+.board-svg .ms-clue.c5 { fill: #a33b2e; }
+.board-svg .ms-clue.c6 { fill: #1f7a7a; }
+.board-svg .ms-clue.c7 { fill: #263338; }
+.board-svg .ms-clue.c8 { fill: #4a4a4a; }
+.board-svg .ms-clue.bad { fill: var(--error); }
+
+.board-svg .ms-black {
+  fill: #263338;
+  pointer-events: none;
+}
+
+.board-svg .ms-clue {
+  fill: #b3541e;
+}
