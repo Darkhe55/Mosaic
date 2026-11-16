@@ -70,7 +70,38 @@ src/
     render.ts / state.ts          SVG 渲染与盘面状态
     validate.ts / solver.ts       实时校验与回溯求解
     puzzles.ts / puzzles-data.ts  题库加载与静态题库
+    imported-puzzles.ts           图片导入的题目（npm run gen 不会覆盖）
+scripts/
+  import-image.mjs                图片识图导入题库
 ```
+
+## 从图片导入题库（识图）
+
+`scripts/import-image.mjs` 用 Playwright + Edge 全自动识别马赛克题面图片（0–8 线索数字），
+默认**只预览**，加 `--append` 才写入 `src/game/imported-puzzles.ts`（该文件不会被 `npm run gen` 覆盖）。
+
+```bash
+npm run import-image -- board.png                 # 预览识别结果
+npm run import-image -- board.png --verify        # 预览 + 唯一解校验 + 参考解
+npm run import-image -- board.png --append        # 写入题库
+npm run import-image -- board.png --append --verify --name "识图 · 8×8"
+```
+
+识别流程：按页面底色裁出题板，用「格子底色比格线亮」的亮度投影找等距格线并自动判定 W×H
+（截图与印刷风格图片都适用）→ 每格中心裁切 + 自适应二值化（自动适配线索格略深的底色）+ 多字体模板匹配识别 0–8。
+
+常用参数：
+
+| 参数 | 说明 |
+|------|------|
+| `--size N` | 手动指定边长（自动判定失败时） |
+| `--map "x,y=数字,..."` | 人工修正某格线索，坐标 0 基（列,行），`.` = 无数字 |
+| `--ink-drop N` | 数字墨迹相对格子底色的亮度差阈值（默认 60） |
+| `--crop "x,y,w,h"` | 只识别图片中的这块区域（截图带页面边框时用） |
+| `--json out.json` | 导出识别结果（board / solution / 是否唯一） |
+| `--verify` | 调项目 solver 检查唯一解并求参考解（超时只告警） |
+| `--append` | 写入 `src/game/imported-puzzles.ts`（配合 `--dry` 可只演练不写） |
+| `--dry` | 不写入 |
 
 ## 命令
 
@@ -82,4 +113,5 @@ npm run gen       # 重新生成题库
 npm run check     # 审计题库
 npm run verify    # 参考解、逻辑回放与交互验证
 npm run audit     # 逐题审计逻辑解题
+npm run import-image -- <图片> [--append] [--verify]  # 图片导入题库
 ```

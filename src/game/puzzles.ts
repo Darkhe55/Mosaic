@@ -4,6 +4,7 @@
 
 import type { Difficulty, GameState, Puzzle } from '../core/types'
 import { RAW_PUZZLES } from './puzzles-data'
+import { IMPORTED_PUZZLES } from './imported-puzzles'
 import {
   decodeClues,
   decodeMines,
@@ -22,6 +23,9 @@ export interface RawPuzzle {
   solution?: string
 }
 
+/** 内置题库 + 图片导入题库（imported-puzzles.ts，不会被 npm run gen 覆盖） */
+const ALL_RAW: RawPuzzle[] = [...(RAW_PUZZLES as RawPuzzle[]), ...IMPORTED_PUZZLES]
+
 export function decodePuzzle(raw: RawPuzzle): MinesweeperPuzzle | null {
   const expected = raw.width * raw.height
   const clues = decodeClues(raw.board, expected)
@@ -37,12 +41,12 @@ export function decodePuzzle(raw: RawPuzzle): MinesweeperPuzzle | null {
   }
 }
 
-export const builtinPuzzles: Puzzle[] = (RAW_PUZZLES as RawPuzzle[])
-  .map(decodePuzzle)
-  .filter((p): p is MinesweeperPuzzle => p !== null)
+export const builtinPuzzles: Puzzle[] = ALL_RAW.map(decodePuzzle).filter(
+  (p): p is MinesweeperPuzzle => p !== null,
+)
 
 export function getReferenceSolution(id: string): GameState | null {
-  const raw = (RAW_PUZZLES as RawPuzzle[]).find((p) => p.id === id)
+  const raw = ALL_RAW.find((p) => p.id === id)
   if (!raw || typeof raw.solution !== 'string') return null
   const puzzle = decodePuzzle(raw)
   if (!puzzle) return null
