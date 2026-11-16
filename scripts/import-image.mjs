@@ -3,15 +3,19 @@
  *
  * 用法：
  *   node scripts/import-image.mjs <图片路径> [--size N] [--name 名称] [--series 识图]
- *                                  [--append] [--verify] [--json out.json]
+ *                                  [--mode strict|standard] [--append] [--verify] [--json out.json]
  *                                  [--map "x,y=数字,..."] [--ink-drop N] [--crop "x,y,w,h"] [--dry]
  *
  * 流程：
  *   1. Playwright + Edge 打开图片到 canvas，取灰度像素；
  *   2. 按页面底色裁出题板，用「格子底色比格线亮」的亮度投影找等距格线，自动判定 W×H；
- *   3. 每格中心裁切、自适应二值化（线索格底色略深）、多字体模板匹配识别 0–8 线索；
+ *   3. 每格中心裁切、自适应二值化（线索格底色略深）、多字体模板匹配识别 0–9 线索；
  *   4. 预览线索矩阵；--verify 调项目 solver 检查唯一解并给出参考解（超时只告警）；
  *   5. --append 写入 src/game/imported-puzzles.ts（不会被 npm run gen 覆盖）。
+ *
+ * 规则变体 --mode：
+ *   standard（默认）—— 标准 Mosaic：数字格自身也可以是黑格，数字 0–9；
+ *   strict          —— 旧题规则：数字格不能涂黑，数字 0–8（旧图导入时用）。
  *
  * --map：人工修正某格线索，坐标 0 基（列,行），`.` 表示无数字，例如 --map "3,4=5,0,0=."。
  */
@@ -42,7 +46,7 @@ function arg(flag, fallback = '') {
   const i = args.indexOf(flag)
   return i >= 0 ? (args[i + 1] ?? fallback) : fallback
 }
-const VALUE_FLAGS = ['--size', '--name', '--series', '--json', '--map', '--ink-drop', '--crop', '--timeout']
+const VALUE_FLAGS = ['--size', '--name', '--series', '--mode', '--json', '--map', '--ink-drop', '--crop', '--timeout']
 const imageArg = args.find((a, i) => {
   if (a.startsWith('--')) return false
   const prev = args[i - 1]
@@ -50,7 +54,7 @@ const imageArg = args.find((a, i) => {
 })
 if (!imageArg) {
   console.error(
-    '用法：node scripts/import-image.mjs <图片路径> [--size N] [--name 名称] [--series 识图] [--append] [--verify] [--json out.json] [--map "x,y=数字,..."] [--ink-drop N] [--crop "x,y,w,h"] [--dry]',
+    '用法：node scripts/import-image.mjs <图片路径> [--size N] [--name 名称] [--series 识图] [--mode strict|standard] [--append] [--verify] [--json out.json] [--map "x,y=数字,..."] [--ink-drop N] [--crop "x,y,w,h"] [--dry]',
   )
   process.exit(1)
 }
@@ -68,6 +72,12 @@ const inkDrop = Number(arg('--ink-drop', '60')) || 60
 const append = has('--append')
 const verify = has('--verify')
 const dry = has('--dry')
+const modeArg = arg('--mode', 'standard')
+if (modeArg !== 'strict' && modeArg !== 'standard') {
+  console.error(`--mode 只能是 strict 或 standard（当前：${modeArg}）`)
+  process.exit(1)
+}
+const ruleMode = modeArg
 const cropArg = arg('--crop')
 let crop = null
 if (cropArg) {
@@ -83,7 +93,7 @@ if (cropArg) {
 const manual = new Map()
 const mapArg = arg('--map')
 if (mapArg) {
-  const re = /(\d+)\s*,\s*(\d+)\s*=\s*([0-8.])/g
+  const re = /(\d+)\s*,\s*(\d+)\s*=\s*([0-9.])/g
   let matched = 0
   let m
   while ((m = re.exec(mapArg)) !== null) {
@@ -253,10 +263,10 @@ const analysis = await page.evaluate(
     const cellX = (xs[cols] - xs[0]) / cols
     const cellY = (ys[rows] - ys[0]) / rows
 
-    // 3) 数字模板（0–8，多字体多字重，归一化 24×24）
+    // 3) 数字模板（0–9，多字体多字重，归一化 24×24）
     const NS = 24
     const SRC = 40
-    const DIGITS = '012345678'
+    const DIGITS = '0123456789'
     const normBit = (raw, T) => {
       let x0 = SRC
       let y0 = SRC
@@ -516,20 +526,26 @@ if (analysis.warnings.length) {
   for (const w of analysis.warnings.slice(0, 25)) console.log('  - ' + w)
   if (analysis.warnings.length > 25) console.log(`  … 其余 ${analysis.warnings.length - 25} 条略`)
 }
+if (ruleMode === 'strict' && clues.some((v) => v > 8)) {
+  console.warn('[import] strict 变体出现 9 线索（数字格不能涂黑时不可能满足），请改用 --mode standard')
+}
+console.log(`[import] 规则变体：${ruleMode}（strict = 数字格不能涂黑；standard = 数字格可为黑格）`)
 
 // ───────────────────────── 校验 / 求解 ─────────────────────────
 let solution = null
 let unique = null
 if (verify || append) {
   const t0 = Date.now()
-  const counted = countSolutions(clues, cols, rows, 2, 1_200_000)
+  // 大棋盘（如 50×50）搜索空间更大，放宽节点预算；超时仍只告警
+  const nodeBudget = cols * rows > 900 ? 4_000_000 : 1_200_000
+  const counted = countSolutions(clues, cols, rows, 2, nodeBudget, ruleMode)
   if (counted.timedOut) {
     console.warn(`[import] 唯一性检查超时（${counted.nodes} 节点 / ${Date.now() - t0}ms），仅告警`)
   } else if (counted.count !== 1) {
     console.warn(`[import] 解不唯一：找到 ${counted.count} 个（可能是识别错误，可用 --map 修正）`)
   } else {
     unique = true
-    solution = findSolution(clues, cols, rows, 2_000_000)
+    solution = findSolution(clues, cols, rows, nodeBudget * 2, ruleMode)
     if (solution) {
       console.log(`[import] 项目 solver 校验：唯一解 ✓（${Date.now() - t0}ms，${counted.nodes} 节点）`)
       console.log('[import] 参考解（1 = 黑格）：')
@@ -556,6 +572,7 @@ if (jsonOut) {
       {
         width: cols,
         height: rows,
+        mode: ruleMode,
         clueCount,
         board: boardText,
         solution: solutionText || null,
@@ -577,7 +594,7 @@ if (append) {
   } else {
     const entry =
       `  { id: ${JSON.stringify(id)}, name: ${JSON.stringify(name)}, width: ${cols}, height: ${rows}, ` +
-      `difficulty: 'custom', series: ${JSON.stringify(series)}, board: ${JSON.stringify(boardText)}, solution: ${JSON.stringify(solutionText)} },\n`
+      `difficulty: 'custom', series: ${JSON.stringify(series)}, mode: '${ruleMode}', board: ${JSON.stringify(boardText)}, solution: ${JSON.stringify(solutionText)} },\n`
     const dataFile = path.resolve('src/game/imported-puzzles.ts')
     if (!existsSync(dataFile)) {
       writeFileSync(

@@ -44,6 +44,9 @@ for (const p of items) {
   if (typeof p.board !== 'string' || p.board.length !== p.width * p.height) {
     throw new Error(`[gen] ${p.id} 的 board 长度不等于 ${p.width}×${p.height}`)
   }
+  if (p.mode && p.mode !== 'strict' && p.mode !== 'standard') {
+    throw new Error(`[gen] ${p.id} 的 mode 非法：${p.mode}（只能是 strict / standard）`)
+  }
   if (p.solution && p.solution.length !== p.width * p.height) {
     throw new Error(`[gen] ${p.id} 的 solution 长度不等于 ${p.width}×${p.height}`)
   }
@@ -58,6 +61,8 @@ lines.push('  width: number')
 lines.push('  height: number')
 lines.push(`  difficulty: 'easy' | 'medium' | 'hard' | 'custom'`)
 lines.push('  series: string')
+lines.push('  /** 规则变体：缺省 strict（旧题）；standard = 标准 Mosaic（数字格可为黑格，数字 0–9） */')
+lines.push(`  mode?: 'strict' | 'standard'`)
 lines.push('  /** 题面编码串（格式由 src/game/puzzles.ts 解析） */')
 lines.push('  board: string')
 lines.push('  /** 参考解编码串（没有则留空） */')
@@ -66,8 +71,10 @@ lines.push('}')
 lines.push('')
 lines.push('export const RAW_PUZZLES: RawPuzzle[] = [')
 for (const p of items) {
+  // 旧题（strict）不写 mode，保持向后兼容；只有 standard 变体显式标注
+  const modePart = p.mode === 'standard' ? `, mode: 'standard'` : ''
   lines.push(
-    `  { id: ${JSON.stringify(p.id)}, name: ${JSON.stringify(p.name)}, width: ${p.width}, height: ${p.height}, difficulty: '${p.difficulty}', series: ${JSON.stringify(p.series || 'builtin')}, board: ${JSON.stringify(p.board)}, solution: ${JSON.stringify(p.solution || '')} },`,
+    `  { id: ${JSON.stringify(p.id)}, name: ${JSON.stringify(p.name)}, width: ${p.width}, height: ${p.height}, difficulty: '${p.difficulty}', series: ${JSON.stringify(p.series || 'builtin')}${modePart}, board: ${JSON.stringify(p.board)}, solution: ${JSON.stringify(p.solution || '')} },`,
   )
 }
 lines.push(']')

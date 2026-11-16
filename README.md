@@ -16,8 +16,16 @@ npm start
 ## 游戏规则
 
 - 数字表示以它为中心的 3×3 区域内黑格总数，包含数字格自身
-- 数字格本身不能涂黑
 - 所有数字必须同时满足
+- 规则有两种变体（题目用可选字段 `mode` 区分，缺省为严格版）：
+
+| 变体 | 数字格自身 | 数字范围 | 适用 |
+|------|-----------|---------|------|
+| `strict`（严格版，默认） | 不能涂黑 | 0–8 | 内置 6 道旧题 |
+| `standard`（标准 Mosaic） | 可以是黑格 | 0–9 | 图片导入的标准题面 |
+
+> 严格版等价于「数字统计周围 8 格」；标准版才允许数字格自身是黑格（所以会出现 9）。
+> 旧题没有 `mode` 字段，一律按严格版解释，行为与以前完全一致。
 
 ## 操作
 
@@ -42,6 +50,8 @@ npm start
 - **实时校验**：冲突与违规位置即时高亮，满足的条件同步变灰
 - **逻辑解题**：规则引擎逐帧回放，显示每一步理由；回放中按钮变为停止，按 `P` 暂停/继续
 - **提示一格 / 显示解**：提示优先揭示所有解一致的格子，显示解直接填入可行答案
+- **大棋盘求解**：超过 12×12 的棋盘自动改用 CDCL SAT 求解（`src/game/sat.ts`），
+  50×50 图片导入题也能在 1 秒内求出唯一解
 - **撤销/重做**：按手势分组，一次拖拽只需一步撤销
 - **进度保存**：自动保存当前题目进度，刷新不丢失
 - **音效特效**：Web Audio 合成拨弦、水滴与落子动画，无外部音频资源
@@ -68,7 +78,8 @@ src/
     rules.ts                      推理规则
     logic.ts                      逻辑解题回放
     render.ts / state.ts          SVG 渲染与盘面状态
-    validate.ts / solver.ts       实时校验与回溯求解
+    validate.ts / solver.ts       实时校验与回溯求解（大棋盘走 SAT）
+    sat.ts                        CDCL SAT 求解器 + 基数约束编码（50×50 用）
     puzzles.ts / puzzles-data.ts  题库加载与静态题库
     imported-puzzles.ts           图片导入的题目（npm run gen 不会覆盖）
 scripts/
@@ -77,28 +88,34 @@ scripts/
 
 ## 从图片导入题库（识图）
 
-`scripts/import-image.mjs` 用 Playwright + Edge 全自动识别马赛克题面图片（0–8 线索数字），
+`scripts/import-image.mjs` 用 Playwright + Edge 全自动识别马赛克题面图片（0–9 线索数字），
 默认**只预览**，加 `--append` 才写入 `src/game/imported-puzzles.ts`（该文件不会被 `npm run gen` 覆盖）。
 
 ```bash
-npm run import-image -- board.png                 # 预览识别结果
+npm run import-image -- board.png                 # 预览识别结果（默认标准版规则）
 npm run import-image -- board.png --verify        # 预览 + 唯一解校验 + 参考解
-npm run import-image -- board.png --append        # 写入题库
+npm run import-image -- board.png --append        # 写入题库（写入 mode: 'standard'）
 npm run import-image -- board.png --append --verify --name "识图 · 8×8"
+npm run import-image -- board.png --mode strict    # 旧规则图片（数字格不能涂黑，0–8）
 ```
 
 识别流程：按页面底色裁出题板，用「格子底色比格线亮」的亮度投影找等距格线并自动判定 W×H
-（截图与印刷风格图片都适用）→ 每格中心裁切 + 自适应二值化（自动适配线索格略深的底色）+ 多字体模板匹配识别 0–8。
+（截图与印刷风格图片都适用）→ 每格中心裁切 + 自适应二值化 + 多字体模板匹配识别 0–9。
+
+> 规则变体：导入默认 `--mode standard`（标准 Mosaic，数字格自身可为黑格，数字最大 9），
+> 写进题库时带 `mode: 'standard'`；旧图用 `--mode strict`（数字格不能涂黑，0–8）。
+> 大棋盘（如 50×50）的唯一解校验会自动走 SAT 求解器，通常 1 秒内完成。
 
 常用参数：
 
 | 参数 | 说明 |
 |------|------|
 | `--size N` | 手动指定边长（自动判定失败时） |
+| `--mode strict\|standard` | 规则变体（默认 standard） |
 | `--map "x,y=数字,..."` | 人工修正某格线索，坐标 0 基（列,行），`.` = 无数字 |
 | `--ink-drop N` | 数字墨迹相对格子底色的亮度差阈值（默认 60） |
 | `--crop "x,y,w,h"` | 只识别图片中的这块区域（截图带页面边框时用） |
-| `--json out.json` | 导出识别结果（board / solution / 是否唯一） |
+| `--json out.json` | 导出识别结果（board / solution / 规则变体 / 是否唯一） |
 | `--verify` | 调项目 solver 检查唯一解并求参考解（超时只告警） |
 | `--append` | 写入 `src/game/imported-puzzles.ts`（配合 `--dry` 可只演练不写） |
 | `--dry` | 不写入 |

@@ -1,5 +1,5 @@
 /**
- * 扫雷 —— 逻辑解题回放
+ * 扫雷 —— 逻辑解题回放（支持 strict / standard 规则变体）
  */
 
 import type { GameState, LogicPlan, Move, PlaybackFrame, Puzzle } from '../core/types'
@@ -8,6 +8,7 @@ import { findSolution } from './solver'
 import {
   asMinesweeperPuzzle,
   asMinesweeperState,
+  variantOf,
   type MinesweeperState,
 } from './types'
 
@@ -18,6 +19,7 @@ export function planLogicSolve(puzzle: Puzzle, initialState: GameState): LogicPl
   const h = p.height
   const clues = p.clues ?? []
   const total = w * h
+  const mode = variantOf(p)
 
   const frames: PlaybackFrame[] = []
   const grid = new Array<number>(total).fill(-1)
@@ -32,14 +34,14 @@ export function planLogicSolve(puzzle: Puzzle, initialState: GameState): LogicPl
     frames.push({ rule: value === 1 ? 1 : 2, label, move, streak })
   }
 
-  if (!propagate(grid, clues, w, h, onSet)) {
+  if (!propagate(grid, clues, w, h, onSet, mode)) {
     return { puzzleId: p.id, frames: [], finalState: null, ruleSteps: 0, saturated: false }
   }
 
   let saturated = true
   if (grid.some((v) => v === -1)) {
     saturated = false
-    const solution = findSolution(clues, w, h, 2_000_000)
+    const solution = findSolution(clues, w, h, 2_000_000, mode)
     if (!solution) {
       return { puzzleId: p.id, frames: [], finalState: null, ruleSteps: 0, saturated: false }
     }
@@ -50,7 +52,7 @@ export function planLogicSolve(puzzle: Puzzle, initialState: GameState): LogicPl
   }
 
   const mines = grid.map((v) => (v === 1 ? 1 : 0))
-  if (!checkSolution(mines, clues, w, h).ok) {
+  if (!checkSolution(mines, clues, w, h, mode).ok) {
     return { puzzleId: p.id, frames: [], finalState: null, ruleSteps: 0, saturated: false }
   }
   // 确保回放结果与推理终态一致（补上传播阶段可能漏记的格子）

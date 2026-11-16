@@ -10,6 +10,7 @@ import {
   decodeMines,
   type MinesweeperPuzzle,
   type MinesweeperState,
+  type RuleVariant,
 } from './types'
 
 export interface RawPuzzle {
@@ -19,6 +20,8 @@ export interface RawPuzzle {
   height: number
   difficulty: Difficulty
   series?: string
+  /** 规则变体：缺省 strict（旧题）；standard = 标准 Mosaic（数字格可为黑格） */
+  mode?: RuleVariant | string
   board: string
   solution?: string
 }
@@ -36,6 +39,8 @@ export function decodePuzzle(raw: RawPuzzle): MinesweeperPuzzle | null {
     width: raw.width,
     height: raw.height,
     difficulty: raw.difficulty,
+    // 向后兼容：没有 mode 字段的旧题一律 strict
+    mode: raw.mode === 'standard' ? 'standard' : 'strict',
     clues,
     solutionMines: raw.solution,
   }

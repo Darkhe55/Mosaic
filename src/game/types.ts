@@ -1,15 +1,30 @@
 /**
  * 扫雷 —— 类型
  *
- * clues[i]：-1 无数字，0..8 数字线索。
- * mines[i]：0 安全，1 地雷。
+ * clues[i]：-1 无数字，0..9 数字线索。
+ * mines[i]：0 白格，1 黑格。
+ *
+ * 规则变体（向后兼容字段 mode）：
+ *   strict   —— 旧题默认：数字格本身不能涂黑，因此数字范围 0..8；
+ *   standard —— 标准 Mosaic：数字格自身也可以是黑格，数字范围 0..9。
+ * 缺省（没有 mode 字段）一律按 strict 处理，旧题库行为不变。
  */
 
 import type { GameState, Puzzle, ValidationResult } from '../core/types'
 
+/** 规则变体：strict = 数字格不能涂黑；standard = 数字格可为黑格 */
+export type RuleVariant = 'strict' | 'standard'
+
 export interface MinesweeperPuzzle extends Puzzle {
   clues: number[]
   solutionMines?: string
+  /** 规则变体，缺省 strict（旧题） */
+  mode?: RuleVariant
+}
+
+/** 读取题目规则变体，缺省/未知值一律 strict（向后兼容） */
+export function variantOf(puzzle: Puzzle): RuleVariant {
+  return (puzzle as MinesweeperPuzzle).mode === 'standard' ? 'standard' : 'strict'
 }
 
 export interface MinesweeperState extends GameState {
@@ -69,7 +84,8 @@ export function decodeClues(text: string, expected: number): number[] | null {
     const ch = text[i]!
     if (ch === '.') continue
     const v = ch.charCodeAt(0) - 48
-    if (v < 0 || v > 8) return null
+    // 0..9：standard 变体的数字格自身可为黑格，因此会出现 9
+    if (v < 0 || v > 9) return null
     out[i] = v
   }
   return out

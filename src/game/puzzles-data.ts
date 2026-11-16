@@ -6,6 +6,8 @@ export interface RawPuzzle {
   height: number
   difficulty: 'easy' | 'medium' | 'hard' | 'custom'
   series: string
+  /** 规则变体：缺省 strict（旧题）；standard = 标准 Mosaic（数字格可为黑格，数字 0–9） */
+  mode?: 'strict' | 'standard'
   /** 题面编码串（格式由 src/game/puzzles.ts 解析） */
   board: string
   /** 参考解编码串（没有则留空） */

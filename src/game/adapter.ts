@@ -31,13 +31,13 @@ const meta = {
   title: '马赛克',
   tagline: '数字表示以它为中心的 3×3 区域内的黑格总数',
   footerNote:
-    '规则：涂黑部分格子。数字表示以它为中心的 3×3 区域内（含数字格自身）黑格的总数；数字格本身不能涂黑。点击格子在「黑格 / 白格」之间切换。',
+    '规则：涂黑部分格子。数字表示以它为中心的 3×3 区域内（含数字格自身）黑格的总数。旧题按严格版：数字格本身不能涂黑；图片导入的标准版题面允许数字格自身是黑格（数字最大 9）。点击格子在「黑格 / 白格」之间切换。',
   storageKeyPrefix: 'mosaic',
   customIdPrefix: 'mosaic-custom-',
   customMinW: 4,
   customMinH: 4,
-  customMaxW: 10,
-  customMaxH: 10,
+  customMaxW: 50,
+  customMaxH: 50,
   targetKind: 'cell' as const,
 }
 

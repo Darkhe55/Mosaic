@@ -35,6 +35,9 @@
 .board-svg .ms-clue.c6 { fill: #1f7a7a; }
 .board-svg .ms-clue.c7 { fill: #263338; }
 .board-svg .ms-clue.c8 { fill: #4a4a4a; }
+.board-svg .ms-clue.c9 { fill: #7a3b8f; }
+/* 标准变体：数字格自身可以是黑格，数字用浅色保证可读 */
+.board-svg .ms-clue.on-black { fill: #f4ead2; }
 .board-svg .ms-clue.bad { fill: var(--error); }
 
 .board-svg .ms-black {

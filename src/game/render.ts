@@ -36,18 +36,20 @@ export function renderBoard(
     const x = o.x + (i % p.width) * cw
     const y = o.y + Math.floor(i / p.width) * ch
     const clue = p.clues?.[i] ?? -1
+    const black = s.mines[i] === 1
     parts.push(
       `<rect class="ms-cell${clue >= 0 ? ' clue' : ''}" x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${cw.toFixed(2)}" height="${ch.toFixed(2)}" />`,
     )
+    // 黑格先画，数字后画：标准变体里数字格自身也可能是黑格，数字仍要可见
+    if (black) {
+      parts.push(
+        `<rect class="ms-black" x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${cw.toFixed(2)}" height="${ch.toFixed(2)}" />`,
+      )
+    }
     if (clue >= 0) {
       const c = cellCenter(m, i)
       parts.push(
-        `<text class="ms-clue c${clue}${bad.has(i) ? ' bad' : ''}" x="${c.x.toFixed(2)}" y="${(c.y + 2).toFixed(2)}" style="font-size:${(m.cell * 0.5).toFixed(2)}px">${clue}</text>`,
-      )
-    }
-    if (s.mines[i] === 1) {
-      parts.push(
-        `<rect class="ms-black" x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${cw.toFixed(2)}" height="${ch.toFixed(2)}" />`,
+        `<text class="ms-clue c${clue}${black ? ' on-black' : ''}${bad.has(i) ? ' bad' : ''}" x="${c.x.toFixed(2)}" y="${(c.y + 2).toFixed(2)}" style="font-size:${(m.cell * 0.5).toFixed(2)}px">${clue}</text>`,
       )
     }
   }

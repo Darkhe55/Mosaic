@@ -1,31 +1,53 @@
 /**
- * 马赛克题库审计
+ * 马赛克题库审计（内置题库 + 图片导入题库）
+ *
+ * 按每题的规则变体（缺省 strict，standard 允许数字格为黑格）校验：
+ * 参考解合法、解唯一、规则传播无矛盾。
  */
 
-import { readFileSync } from 'node:fs'
+import { readFileSync, existsSync } from 'node:fs'
 import path from 'node:path'
 import { decodeClues, decodeMines } from '../src/game/types.ts'
 import { checkSolution, propagate } from '../src/game/rules.ts'
 import { countSolutions } from '../src/game/solver.ts'
 
-const DATA_FILE = path.resolve('src/game/puzzles-data.ts')
-const text = readFileSync(DATA_FILE, 'utf8')
+const DATA_FILES = [
+  path.resolve('src/game/puzzles-data.ts'),
+  path.resolve('src/game/imported-puzzles.ts'),
+]
+
+/** 从文件里抠出 `{ ... }` 条目，再逐个字段解析（兼容单/双引号、可选 mode） */
+function parseEntries(text) {
+  const entries = []
+  for (const block of text.match(/\{[^{}]*\}/g) ?? []) {
+    const id = block.match(/id:\s*"([^"]*)"/)?.[1]
+    const board = block.match(/board:\s*"([^"]*)"/)?.[1]
+    if (!id || board === undefined) continue
+    const num = (re, fallback = 0) => {
+      const m = block.match(re)
+      return m ? Number(m[1]) : fallback
+    }
+    entries.push({
+      id,
+      name: block.match(/name:\s*"([^"]*)"/)?.[1] ?? id,
+      width: num(/width:\s*(\d+)/),
+      height: num(/height:\s*(\d+)/),
+      difficulty: block.match(/difficulty:\s*'([^']*)'/)?.[1] ?? 'custom',
+      series: block.match(/series:\s*"([^"]*)"/)?.[1] ?? '',
+      mode: block.match(/mode:\s*['"]([^'"]*)['"]/)?.[1] ?? 'strict',
+      board,
+      solution: block.match(/solution:\s*"([^"]*)"/)?.[1] ?? '',
+    })
+  }
+  return entries
+}
 
 const entries = []
-const re =
-  /\{\s*id:\s*"([^"]+)",\s*name:\s*"([^"]+)",\s*width:\s*(\d+),\s*height:\s*(\d+),\s*difficulty:\s*'([^']+)',\s*series:\s*"([^"]+)",\s*board:\s*"([^"]*)",\s*solution:\s*"([^"]*)"\s*\}/g
-let m
-while ((m = re.exec(text)) !== null) {
-  entries.push({
-    id: m[1],
-    name: m[2],
-    width: Number(m[3]),
-    height: Number(m[4]),
-    difficulty: m[5],
-    series: m[6],
-    board: m[7],
-    solution: m[8],
-  })
+for (const file of DATA_FILES) {
+  if (!existsSync(file)) continue
+  const parsed = parseEntries(readFileSync(file, 'utf8'))
+  if (parsed.length) console.log(`[check] 读取 ${path.basename(file)}：${parsed.length} 题`)
+  entries.push(...parsed)
 }
 
 let errors = 0
@@ -33,6 +55,7 @@ let warnings = 0
 const ids = new Set()
 
 for (const e of entries) {
+  const mode = e.mode === 'standard' ? 'standard' : 'strict'
   if (ids.has(e.id)) {
     console.error(`[check] 重复 id: ${e.id}`)
     errors++
@@ -46,14 +69,19 @@ for (const e of entries) {
     errors++
     continue
   }
-  const ref = checkSolution(mines, clues, e.width, e.height)
+  if (mode === 'strict' && clues.some((v) => v > 8)) {
+    console.error(`[check] ${e.id} strict 变体出现 9 线索（数字格不能涂黑时不可能满足）`)
+    errors++
+    continue
+  }
+  const ref = checkSolution(mines, clues, e.width, e.height, mode)
   if (!ref.ok) {
     console.error(`[check] ${e.id} 参考解不合法`)
     errors++
     continue
   }
 
-  const counted = countSolutions(clues, e.width, e.height, 2, 1_000_000)
+  const counted = countSolutions(clues, e.width, e.height, 2, 1_000_000, mode)
   if (counted.timedOut) {
     console.warn(`[check] ${e.id} 唯一解检查超时（${counted.nodes} 节点）`)
     warnings++
@@ -64,7 +92,7 @@ for (const e of entries) {
   }
 
   const vals = new Array(cells).fill(-1)
-  const sat = propagate(vals, clues, e.width, e.height)
+  const sat = propagate(vals, clues, e.width, e.height, undefined, mode)
   const decided = vals.every((v) => v !== -1)
   if (!sat) {
     console.error(`[check] ${e.id} 规则传播矛盾`)
@@ -76,7 +104,7 @@ for (const e of entries) {
   const clueCount = clues.filter((v) => v >= 0).length
   const blackCount = mines.filter((v) => v === 1).length
   console.log(
-    `[check] ${e.id} ${e.width}×${e.height} 线索 ${clueCount} 黑格 ${blackCount} · 解唯一 · 逻辑${decided ? '可推满' : '需回溯'} · ${counted.nodes} 节点`,
+    `[check] ${e.id} ${e.width}×${e.height} ${mode} · 线索 ${clueCount} 黑格 ${blackCount} · 解唯一 · 逻辑${decided ? '可推满' : '需回溯'} · ${counted.nodes} 节点`,
   )
 }
 

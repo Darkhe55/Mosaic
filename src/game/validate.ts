@@ -7,13 +7,14 @@ import { checkSolution } from './rules'
 import {
   asMinesweeperPuzzle,
   asMinesweeperState,
+  variantOf,
   type MinesweeperResult,
 } from './types'
 
 export function validate(state: GameState, puzzle: Puzzle): MinesweeperResult {
   const s = asMinesweeperState(state)
   const p = asMinesweeperPuzzle(puzzle)
-  const out = checkSolution(s.mines, p.clues ?? [], p.width, p.height)
+  const out = checkSolution(s.mines, p.clues ?? [], p.width, p.height, variantOf(p))
   return {
     solved: out.ok,
     badCells: out.badCells,
