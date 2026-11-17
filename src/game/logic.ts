@@ -22,13 +22,19 @@ export function planLogicSolve(puzzle: Puzzle, initialState: GameState): LogicPl
   const mode = variantOf(p)
 
   const frames: PlaybackFrame[] = []
-  const grid = new Array<number>(total).fill(-1)
+  // 工作盘面从「当前盘面」开始：玩家已涂黑的格子（1）是已知信息，
+  // 其余（0 = 界面上还没涂黑）保持 -1 未知，由规则继续推理。
+  const displayed: number[] = s.mines.map((v) => (v === 1 ? 1 : 0))
+  const grid: number[] = displayed.map((v) => (v === 1 ? 1 : -1))
   let streak = 0
 
+  // 注意：rules.propagate 会先写盘面再回调，所以这里用 displayed 记录「当前可见值」，
+  // 帧的 from 必须取当前值，而不是已写入的工作盘面。
   const onSet = (index: number, value: number, label: string): void => {
-    if (grid[index] === value) return
-    const from = grid[index] === 1 ? 1 : 0
     grid[index] = value
+    const from = displayed[index] ?? 0
+    if (from === value) return
+    displayed[index] = value
     streak++
     const move: Move = { index, from, to: value }
     frames.push({ rule: value === 1 ? 1 : 2, label, move, streak })
@@ -54,18 +60,6 @@ export function planLogicSolve(puzzle: Puzzle, initialState: GameState): LogicPl
   const mines = grid.map((v) => (v === 1 ? 1 : 0))
   if (!checkSolution(mines, clues, w, h, mode).ok) {
     return { puzzleId: p.id, frames: [], finalState: null, ruleSteps: 0, saturated: false }
-  }
-  // 确保回放结果与推理终态一致（补上传播阶段可能漏记的格子）
-  for (let i = 0; i < total; i++) {
-    const from = s.mines[i] ?? 0
-    if (mines[i] === from) continue
-    streak++
-    frames.push({
-      rule: 4,
-      label: '补全：该格最终状态',
-      move: { index: i, from, to: mines[i]! },
-      streak,
-    })
   }
   const finalState: MinesweeperState = {
     puzzleId: s.puzzleId,
