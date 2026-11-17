@@ -1,5 +1,5 @@
 /**
- * 扫雷 —— 逻辑解题回放（支持 strict / standard 规则变体）
+ * 马赛克 —— 逻辑解题回放（支持 strict / standard 规则变体）
  */
 
 import type { GameState, LogicPlan, Move, PlaybackFrame, Puzzle } from '../core/types'

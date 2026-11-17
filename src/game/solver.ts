@@ -1,5 +1,5 @@
 /**
- * 扫雷 —— 回溯求解器（支持 strict / standard 规则变体）
+ * 马赛克 —— 回溯求解器（支持 strict / standard 规则变体）
  *
  * 小棋盘（旧 8×8 题）沿用朴素 DFS；大棋盘（如 50×50 图片导入题）自动改用
  * CDCL SAT 求解（src/game/sat.ts），否则朴素搜索会超时。
